@@ -1,0 +1,12 @@
+ray[rllib]
+transformers
+faiss-cpu
+torch
+pandas
+sklearn
+peft
+auto-gptq
+mlflow
+optimum[onnxruntime]
+sentence-transformers
+hyperopt
