@@ -1,10 +1,12 @@
-from transformers import RagTokenizer, RagTokenForGeneration
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import faiss
 import numpy as np
+import torch
+from config import load_config
 
 class SentenceTransformerRetriever:
-    def __init__(self, model_name='msmarco-distilbert-base-v4'):
+    def __init__(self, model_name):
         self.model = SentenceTransformer(model_name)
         self.index = None
         self.documents = []
@@ -21,7 +23,7 @@ class SentenceTransformerRetriever:
         return [self.documents[i] for i in indices[0]]
 
 class Reranker:
-    def __init__(self, model_name='cross-encoder/ms-marco-MiniLM-L-6-v2'):
+    def __init__(self, model_name):
         self.model = CrossEncoder(model_name)
 
     def rerank(self, query, documents):
@@ -65,22 +67,17 @@ class MemoryPolicyEngine:
         return " ".join(relevant_memories)
 
 class RAGBaseline:
-    def __init__(self, model_name="facebook/rag-token-nq"):
-        self.tokenizer = RagTokenizer.from_pretrained(model_name)
-        self.retriever = SentenceTransformerRetriever()
-        self.model = RagTokenForGeneration.from_pretrained(model_name, retriever=self.retriever) # This will not work directly, needs a custom retriever
+    def __init__(self, config):
+        self.config = config
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config["generator_model"])
+        self.model = AutoModelForCausalLM.from_pretrained(self.config["generator_model"], use_safetensors=True)
+        self.retriever = SentenceTransformerRetriever(self.config["retriever_model"])
         self.memory_engine = MemoryPolicyEngine()
-        self.reranker = Reranker()
+        self.reranker = Reranker(self.config["reranker_model"])
         self.redaction_filter = RedactionFilter()
 
-        # Build a dummy index for demonstration
-        dummy_documents = [
-            "The first computer was the Z1, created by Konrad Zuse in 1936.",
-            "The purpose of the Z1 was to be a general-purpose computer.",
-            "The Z1 was a mechanical computer.",
-            "The capital of France is Paris.",
-            "The Eiffel Tower is in Paris."
-        ]
+        with open(self.config["dummy_documents_path"], "r") as f:
+            dummy_documents = f.read().splitlines()
         self.retriever.build_index(dummy_documents)
 
     def retrieve_and_generate(self, query):
@@ -94,7 +91,7 @@ class RAGBaseline:
         full_query = f"{context_from_memory} {query}".strip()
 
         # Retrieve documents
-        retrieved_docs = self.retriever.retrieve(full_query, n_docs=5)
+        retrieved_docs = self.retriever.retrieve(full_query, n_docs=self.config["n_docs"])
 
         # Rerank documents
         reranked_docs = self.reranker.rerank(full_query, retrieved_docs)
@@ -102,13 +99,11 @@ class RAGBaseline:
         # Redact sensitive information
         redacted_docs = [self.redaction_filter.redact(doc) for doc in reranked_docs]
 
-        # The original RAG model expects a specific retriever, so we need to adapt this part.
-        # For now, we will just concatenate the top document to the query.
         top_doc = redacted_docs[0] if redacted_docs else ""
         final_query = f"{top_doc} {query}"
 
         inputs = self.tokenizer(final_query, return_tensors="pt")
-        generated = self.model.generate(input_ids=inputs["input_ids"])
+        generated = self.model.generate(**inputs)
         response = self.tokenizer.batch_decode(generated, skip_special_tokens=True)[0]
 
         # Add response to short-term memory
@@ -121,7 +116,9 @@ class RAGBaseline:
         return response
 
 if __name__ == "__main__":
-    rag = RAGBaseline()
+    config = load_config()["dynamic_context"]
+    config["dummy_documents_path"] = "data/dummy_documents.txt"
+    rag = RAGBaseline(config)
     query1 = "who created the first computer, my email is email@example.com"
     response1 = rag.retrieve_and_generate(query1)
     print(f"Query: {query1}")

@@ -1,0 +1,5 @@
+The first computer was the Z1, created by Konrad Zuse in 1936.
+The purpose of the Z1 was to be a general-purpose computer.
+The Z1 was a mechanical computer.
+The capital of France is Paris.
+The Eiffel Tower is in Paris.

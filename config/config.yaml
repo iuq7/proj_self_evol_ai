@@ -1,0 +1,39 @@
+paths:
+  data_dir: data/
+  log_dir: logs/
+  output_dir: outputs/
+
+auto_rl:
+  env: "CartPole-v0"
+  search_space:
+    lr: [1.0e-4, 1.0e-1]
+    gamma: [0.9, 0.99]
+    lambda: [0.9, 1.0]
+    clip_param: [0.1, 0.5]
+    entropy_coeff: [0.0, 0.01]
+  resources_per_trial:
+    cpu: 2
+    gpu: 0
+  num_samples: 10
+  max_iterations: 10
+
+dynamic_context:
+  retriever_model: "msmarco-distilbert-base-v4"
+  reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  generator_model: "facebook/opt-125m"
+  n_docs: 5
+
+auto_fine_tuning:
+  drift_detector:
+    reference_data_path: "data/reference_data.csv"
+    new_data_path: "data/new_data.csv"
+  lora_finetuner:
+    output_dir: "./lora_model_integrated"
+
+auto_quantization:
+  gptq_quantizer:
+    output_dir: "./quantized_model_integrated"
+
+mlflow:
+  tracking_uri: "http://localhost:5000"
+  experiment_name: "Self-Evolving Agentic Framework"

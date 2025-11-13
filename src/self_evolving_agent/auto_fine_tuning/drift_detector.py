@@ -4,9 +4,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
 class DriftDetector:
-    def __init__(self, reference_data_path, new_data_path):
-        self.reference_data = pd.read_csv(reference_data_path)
-        self.new_data = pd.read_csv(new_data_path)
+    def __init__(self, config):
+        self.config = config
+        self.reference_data = pd.read_csv(self.config["reference_data_path"])
+        self.new_data = pd.read_csv(self.config["new_data_path"])
 
     def detect_drift(self):
         """
@@ -39,22 +40,3 @@ class DriftDetector:
         df = pd.read_csv(data_path)
         # Add your preprocessing steps here
         return df
-
-if __name__ == "__main__":
-    # Create dummy data for demonstration
-    reference_data = pd.DataFrame({'feature1': [1, 2, 3, 4, 5], 'feature2': [6, 7, 8, 9, 10]})
-    new_data = pd.DataFrame({'feature1': [11, 12, 13, 14, 15], 'feature2': [16, 17, 18, 19, 20]})
-
-    reference_data.to_csv("reference_data.csv", index=False)
-    new_data.to_csv("new_data.csv", index=False)
-
-    drift_detector = DriftDetector("reference_data.csv", "new_data.csv")
-    is_drift_detected = drift_detector.detect_drift()
-
-    if is_drift_detected:
-        print("Drift detected! Triggering fine-tuning...")
-        preprocessed_data = drift_detector.preprocess_data("new_data.csv")
-        print("Preprocessed data:")
-        print(preprocessed_data.head())
-    else:
-        print("No drift detected.")

@@ -3,11 +3,12 @@ from peft import LoraConfig, get_peft_model, TaskType
 import torch
 
 class LoRAFinetuner:
-    def __init__(self, model_name="bert-base-uncased", num_labels=2):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
+    def __init__(self, config):
+        self.config = config
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_name"])
+        self.model = AutoModelForSequenceClassification.from_pretrained(self.config["model_name"], num_labels=self.config["num_labels"])
 
-    def fine_tune(self, train_dataset, eval_dataset, output_dir="./lora_model"):
+    def fine_tune(self, train_dataset, eval_dataset, output_dir):
         peft_config = LoraConfig(
             task_type=TaskType.SEQ_CLS,
             inference_mode=False,
@@ -53,29 +54,19 @@ class LoRAFinetuner:
         # and monitor its performance before promoting it to production.
         print("Canary deployment successful!") # Placeholder
 
+class DummyDataset(torch.utils.data.Dataset):
+    def __init__(self, tokenizer, num_samples=100):
+        self.tokenizer = tokenizer
+        self.texts = ["This is a positive example.", "This is a negative example."] * (num_samples // 2)
+        self.labels = [1, 0] * (num_samples // 2)
 
-if __name__ == "__main__":
-    finetuner = LoRAFinetuner()
+    def __len__(self):
+        return len(self.texts)
 
-    # Dummy datasets for demonstration
-    class DummyDataset(torch.utils.data.Dataset):
-        def __init__(self, tokenizer, num_samples=100):
-            self.tokenizer = tokenizer
-            self.texts = ["This is a positive example.", "This is a negative example."] * (num_samples // 2)
-            self.labels = [1, 0] * (num_samples // 2)
-
-        def __len__(self):
-            return len(self.texts)
-
-        def __getitem__(self, idx):
-            encodings = self.tokenizer(self.texts[idx], truncation=True, padding="max_length", max_length=128, return_tensors="pt")
-            return {
-                "input_ids": encodings["input_ids"].flatten(),
-                "attention_mask": encodings["attention_mask"].flatten(),
-                "labels": torch.tensor(self.labels[idx], dtype=torch.long),
-            }
-
-    train_dataset = DummyDataset(finetuner.tokenizer)
-    eval_dataset = DummyDataset(finetuner.tokenizer)
-
-    finetuner.fine_tune(train_dataset, eval_dataset)
+    def __getitem__(self, idx):
+        encodings = self.tokenizer(self.texts[idx], truncation=True, padding="max_length", max_length=128, return_tensors="pt")
+        return {
+            "input_ids": encodings["input_ids"].flatten(),
+            "attention_mask": encodings["attention_mask"].flatten(),
+            "labels": torch.tensor(self.labels[idx], dtype=torch.long),
+        }

@@ -3,10 +3,11 @@ transformers
 faiss-cpu
 torch
 pandas
-sklearn
+scikit-learn
 peft
-auto-gptq
 mlflow
 optimum[onnxruntime]
 sentence-transformers
 hyperopt
+auto-gptq
+safetensors
