@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class ModelAnalyzer:
     def __init__(self, model):
         self.model = model

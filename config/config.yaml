@@ -21,7 +21,9 @@ dynamic_context:
   retriever_model: "msmarco-distilbert-base-v4"
   reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
   generator_model: "facebook/opt-125m"
-  n_docs: 5
+  n_docs: 50
+  dataset: "SQuAD v2.0"
+  dummy_documents_path: "data/dummy_documents.txt"
 
 auto_fine_tuning:
   drift_detector:
@@ -29,6 +31,8 @@ auto_fine_tuning:
     new_data_path: "data/new_data.csv"
   lora_finetuner:
     output_dir: "./lora_model_integrated"
+    dataset: "TinyStories"
+    model_name: "facebook/opt-125m"
 
 auto_quantization:
   gptq_quantizer:

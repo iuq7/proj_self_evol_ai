@@ -1,9 +1,8 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import faiss
-import numpy as np
-import torch
 from config import load_config
+
 
 class SentenceTransformerRetriever:
     def __init__(self, model_name):
@@ -22,6 +21,7 @@ class SentenceTransformerRetriever:
         distances, indices = self.index.search(query_embedding, n_docs)
         return [self.documents[i] for i in indices[0]]
 
+
 class Reranker:
     def __init__(self, model_name):
         self.model = CrossEncoder(model_name)
@@ -34,6 +34,7 @@ class Reranker:
         scores = self.model.predict(pairs)
         return [doc for _, doc in sorted(zip(scores, documents), reverse=True)]
 
+
 class RedactionFilter:
     def redact(self, text):
         """
@@ -43,10 +44,11 @@ class RedactionFilter:
         # Simple redaction of email addresses
         return text.replace("email@example.com", "[REDACTED]")
 
+
 class MemoryPolicyEngine:
     def __init__(self):
         self.short_term_memory = []  # Stores recent interactions
-        self.long_term_memory = []   # Stores summarized or important information
+        self.long_term_memory = []  # Stores summarized or important information
 
     def add_to_short_term_memory(self, interaction):
         self.short_term_memory.append(interaction)
@@ -57,20 +59,29 @@ class MemoryPolicyEngine:
     def summarize_and_add_to_long_term_memory(self):
         # This is a placeholder for a more sophisticated summarization and long-term memory storage
         if self.short_term_memory:
-            summary = "Summary of recent interactions: " + "; ".join(self.short_term_memory)
+            summary = "Summary of recent interactions: " + "; ".join(
+                self.short_term_memory
+            )
             self.long_term_memory.append(summary)
             self.short_term_memory = []
 
     def retrieve_from_memory(self, query):
         # Simple retrieval from long-term memory based on keyword matching
-        relevant_memories = [mem for mem in self.long_term_memory if query.lower() in mem.lower()]
+        relevant_memories = [
+            mem for mem in self.long_term_memory if query.lower() in mem.lower()
+        ]
         return " ".join(relevant_memories)
+
 
 class RAGBaseline:
     def __init__(self, config):
         self.config = config
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config["generator_model"])
-        self.model = AutoModelForCausalLM.from_pretrained(self.config["generator_model"], use_safetensors=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.config["generator_model"], trust_remote_code=True
+        )
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.config["generator_model"], use_safetensors=True, trust_remote_code=True
+        )
         self.retriever = SentenceTransformerRetriever(self.config["retriever_model"])
         self.memory_engine = MemoryPolicyEngine()
         self.reranker = Reranker(self.config["reranker_model"])
@@ -91,7 +102,9 @@ class RAGBaseline:
         full_query = f"{context_from_memory} {query}".strip()
 
         # Retrieve documents
-        retrieved_docs = self.retriever.retrieve(full_query, n_docs=self.config["n_docs"])
+        retrieved_docs = self.retriever.retrieve(
+            full_query, n_docs=self.config["n_docs"]
+        )
 
         # Rerank documents
         reranked_docs = self.reranker.rerank(full_query, retrieved_docs)
@@ -102,8 +115,20 @@ class RAGBaseline:
         top_doc = redacted_docs[0] if redacted_docs else ""
         final_query = f"{top_doc} {query}"
 
-        inputs = self.tokenizer(final_query, return_tensors="pt")
-        generated = self.model.generate(**inputs)
+        # Truncate final_query to prevent issues with model's max_position_embeddings
+        # Use the model's max_position_embeddings for accurate truncation, leaving room for generated tokens
+        max_input_length = self.model.config.max_position_embeddings - 512 # Leave room for max_new_tokens
+        
+        # Tokenize and truncate explicitly
+        inputs = self.tokenizer(
+            final_query,
+            return_tensors="pt",
+            truncation=True,
+            max_length=max_input_length,
+            padding='max_length', # Ensure consistent input length
+            return_attention_mask=True
+        )
+        generated = self.model.generate(**inputs, max_new_tokens=512)  # Use max_new_tokens to control output length
         response = self.tokenizer.batch_decode(generated, skip_special_tokens=True)[0]
 
         # Add response to short-term memory
@@ -114,6 +139,7 @@ class RAGBaseline:
             self.memory_engine.summarize_and_add_to_long_term_memory()
 
         return response
+
 
 if __name__ == "__main__":
     config = load_config()["dynamic_context"]

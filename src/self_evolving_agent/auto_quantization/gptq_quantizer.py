@@ -2,13 +2,18 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 import torch
 
+
 class GPTQQuantizer:
     def __init__(self, config):
         self.config = config
         self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_name"])
-        self.model = AutoModelForCausalLM.from_pretrained(self.config["model_name"], torch_dtype=torch.float16)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.config["model_name"], torch_dtype=torch.float16
+        )
 
-    def quantize_model(self, bits=4, group_size=128, desc_act=False, output_dir="./quantized_model"):
+    def quantize_model(
+        self, bits=4, group_size=128, desc_act=False, output_dir="./quantized_model"
+    ):
         quantize_config = BaseQuantizeConfig(
             bits=bits,
             group_size=group_size,
@@ -36,7 +41,9 @@ class GPTQQuantizer:
         Benchmarks the latency of the quantized model.
         """
         print("Benchmarking latency...")
-        model = AutoGPTQForCausalLM.from_quantized(model_path, device="cuda:0", use_safetensors=True)
+        model = AutoGPTQForCausalLM.from_quantized(
+            model_path, device="cuda:0", use_safetensors=True
+        )
         tokenizer = AutoTokenizer.from_pretrained(model_path)
 
         # Create a dummy input
@@ -81,7 +88,9 @@ class GPTQQuantizer:
         import onnxruntime as ort
 
         sess_options = ort.SessionOptions()
-        model = ORTModelForCausalLM.from_pretrained(model_path, session_options=sess_options)
+        model = ORTModelForCausalLM.from_pretrained(
+            model_path, session_options=sess_options
+        )
         tokenizer = AutoTokenizer.from_pretrained(model_path)
 
         # Create a dummy input
@@ -94,6 +103,7 @@ class GPTQQuantizer:
 
         # Measure latency
         import time
+
         start_time = time.time()
         _ = model.generate(**inputs)
         end_time = time.time()
